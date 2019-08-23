@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import pickle
 import os 
 
 
@@ -36,6 +37,30 @@ df = postitive_threshold(df, 4)
 
 #change data type of positive to int
 df.positive = df.positive.apply(int)
+
+def importdf_sample_magnitude(order_of_magnitude=None, random_state=None):
+    '''
+    This function unpickle's the dataframe and returns a random sample of the DataFrame 
+    of a specified magnitude. Allows user to specify the order of magnitude of a random 
+    sampling of the DataFrame. The order_of_magnitude parameter defaults to None, in which 
+    case the function returns the entire data frame. Otherwise, the user enters an integer 
+    which determines the order of magnitude of the DataFrame. A random_state argument is
+    included as an option.
+    
+    IN: integer
+    OUT: DataFrame
+    '''
+    df = pd.read_pickle('df_text.pk')
+    
+    if order_of_magnitude:
+        random_state = random_state
+        sample_size = 10**order_of_magnitude
+        df = df.sample(sample_size, random_state=random_state)
+        return df
+    else: 
+        return df
+
+df.to_pickle('data/df_text.pkl')
 
 
 
