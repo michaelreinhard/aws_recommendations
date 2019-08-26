@@ -4,46 +4,50 @@ import pandas as pd
 from sqlalchemy import create_engine
 
 
-def load_data(messages_filepath, categories_filepath):
+def load_data(food_reviews_filepath):
     '''
     Inputs: (
-        messages_filepath: path to disaster_messages.csv
-        categories_filepath: path to disaster_categories.csv
+        food_reviews_filepath: path to disaster_categories.csv
     Output: 
         df: a pandas DataFrame
         )
     '''
-    messages = pd.read_csv(messages_filepath)
-    categories = pd.read_csv(categories_filepath)
-    df = messages.merge(categories, on='id')
+    df = pd.read_csv(food_reviews_filepath)
+    
+    #combine all the text into one variable
+    df["text_all"] = df.Summary.str.cat(df.Text, sep = ' . ')
+    
+    #drop variables not used in the analysis
+    df = df.drop(['Text', 'Id', 'ProductId', 'UserId', 'ProfileName', 'Time'], axis=1)
+    
     return df
 
 
-def clean_data(df):
-    '''
-    Input: 
-        df: Pandas DataFrame
-    Output: 
-        df: a cleaned Pandas DataFrame
-    Makes the columns names the list of categories and makes 
-    the values of the columns into 1s and 0s. 
-    '''
-    categories = df['categories'].str.split(';', expand=True)
-    row = categories.iloc[:1,:]
-    my_list = []
-    for i in row:
-        my_list.append(row[i][0][:-2])
-    category_colnames = my_list
-    categories.columns = category_colnames
-    for column in categories:
-        # set each value to be the last character of the string
-        categories[column] = categories[column].str[-1:]
-        # convert column from string to numeric
-        categories[column] = categories[column].astype(int)
-    df.drop('categories', axis=1, inplace=True)
-    df = pd.concat([df, categories], axis=1)
-    df = df.drop_duplicates(subset='message', keep='last')
-    return df
+# def clean_data(df):
+#     '''
+#     Input: 
+#         df: Pandas DataFrame
+#     Output: 
+#         df: a cleaned Pandas DataFrame
+#     Makes the columns names the list of categories and makes 
+#     the values of the columns into 1s and 0s. 
+#     '''
+#     categories = df['categories'].str.split(';', expand=True)
+#     row = categories.iloc[:1,:]
+#     my_list = []
+#     for i in row:
+#         my_list.append(row[i][0][:-2])
+#     category_colnames = my_list
+#     categories.columns = category_colnames
+#     for column in categories:
+#         # set each value to be the last character of the string
+#         categories[column] = categories[column].str[-1:]
+#         # convert column from string to numeric
+#         categories[column] = categories[column].astype(int)
+#     df.drop('categories', axis=1, inplace=True)
+#     df = pd.concat([df, categories], axis=1)
+#     df = df.drop_duplicates(subset='message', keep='last')
+#     return df
     
 
 
@@ -51,20 +55,20 @@ def clean_data(df):
 #named below when the function is called. Originally 'database_filename'
 def save_data(df, database_filename):
     engine = create_engine('sqlite:///' + database_filename)
-    df.to_sql('disaster', engine, index=False) 
+    df.to_sql('reviews', engine, index=False) 
 
 
 def main():
-    if len(sys.argv) == 4:
+    if len(sys.argv) == 3:
 
-        messages_filepath, categories_filepath, database_filepath = sys.argv[1:]
+        food_reviews_filepath, database_filepath = sys.argv[1:]
 
-        print('Loading data...\n    MESSAGES: {}\n    CATEGORIES: {}'
-              .format(messages_filepath, categories_filepath))
-        df = load_data(messages_filepath, categories_filepath)
+        print('Loading data...\n    reviews: {}\n'
+              .format(food_reviews_filepath))
+        df = load_data(food_reviews_filepath)
 
-        print('Cleaning data...')
-        df = clean_data(df)
+        # print('Cleaning data...')
+        # df = clean_data(df)
         
         print('Saving data...\n    DATABASE: {}'.format(database_filepath))
         save_data(df, database_filepath)
@@ -72,12 +76,12 @@ def main():
         print('Cleaned data saved to database!')
     
     else:
-        print('Please provide the filepaths of the messages and categories '\
-              'datasets as the first and second argument respectively, as '\
+        print('Please provide the filepath the reviews data as the  '\
+              'dataset as the first argument, as '\
               'well as the filepath of the database to save the cleaned data '\
-              'to as the third argument. \n\nExample: python process_data.py '\
-              'disaster_messages.csv disaster_categories.csv '\
-              'DisasterResponse.db')
+              'to as the third argument. \n\nExample: python data/process_data.py '\
+              'data/reviews.csv ' \
+              'data/Reviews.db')
 
 
 if __name__ == '__main__':
