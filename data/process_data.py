@@ -1,67 +1,84 @@
-import pandas as pd
+import sys
 import numpy as np
-import pickle
-import os 
+import pandas as pd
+from sqlalchemy import create_engine
 
 
-cd = os.getcwd()
-#import the data 
-df = pd.read_csv(cd + '/data/reviews.csv')
-
-#combine all the text into one variable
-df["text_all"] = df.Summary.str.cat(df.Text, sep = ' . ')
-
-#confirm that they are all stings
-# print(type(df.text_all[0]))
-
-#get rid of all the variables we will not be using
-df = df.drop(['Text', 'Id', 'ProductId', 'UserId',\
-              'ProfileName', 'Time'], axis=1)
-
-#create a small function that sets the threshold
-def postitive_threshold(df, threshold):
+def load_data(messages_filepath, categories_filepath):
     '''
-    Input: 
-        df: a Pandas DataFrame
-        threshold: a number between 2 and 5 
-    Sets the threshold at which a review will be coded as 
-    positive or negative. For example, if set at 4 the reviews 
-    that gave 4 or 5 stars will be positive and 3 and below negative.
+    Inputs: (
+        messages_filepath: path to disaster_messages.csv
+        categories_filepath: path to disaster_categories.csv
+    Output: 
+        df: a pandas DataFrame
+        )
     '''
-    df.loc[df.Score >=threshold,'positive'] = int(1)
-    df.loc[df.Score <threshold,'positive'] = int(0)
+    messages = pd.read_csv(messages_filepath)
+    categories = pd.read_csv(categories_filepath)
+    df = messages.merge(categories, on='id')
     return df
 
-#set positive threshold to 4
-df = postitive_threshold(df, 4)
 
-#change data type of positive to int
-df.positive = df.positive.apply(int)
-
-def importdf_sample_magnitude(order_of_magnitude=None, random_state=None):
+def clean_data(df):
     '''
-    This function unpickle's the dataframe and returns a random sample of the DataFrame 
-    of a specified magnitude. Allows user to specify the order of magnitude of a random 
-    sampling of the DataFrame. The order_of_magnitude parameter defaults to None, in which 
-    case the function returns the entire data frame. Otherwise, the user enters an integer 
-    which determines the order of magnitude of the DataFrame. A random_state argument is
-    included as an option.
-    
-    IN: integer
-    OUT: DataFrame
+    Input: 
+        df: Pandas DataFrame
+    Output: 
+        df: a cleaned Pandas DataFrame
+    Makes the columns names the list of categories and makes 
+    the values of the columns into 1s and 0s. 
     '''
-    df = pd.read_pickle('df_text.pk')
+    categories = df['categories'].str.split(';', expand=True)
+    row = categories.iloc[:1,:]
+    my_list = []
+    for i in row:
+        my_list.append(row[i][0][:-2])
+    category_colnames = my_list
+    categories.columns = category_colnames
+    for column in categories:
+        # set each value to be the last character of the string
+        categories[column] = categories[column].str[-1:]
+        # convert column from string to numeric
+        categories[column] = categories[column].astype(int)
+    df.drop('categories', axis=1, inplace=True)
+    df = pd.concat([df, categories], axis=1)
+    df = df.drop_duplicates(subset='message', keep='last')
+    return df
     
-    if order_of_magnitude:
-        random_state = random_state
-        sample_size = 10**order_of_magnitude
-        df = df.sample(sample_size, random_state=random_state)
-        return df
-    else: 
-        return df
-
-df.to_pickle('data/df_text.pkl')
 
 
+#changing second argument to database_filepath to match how it is
+#named below when the function is called. Originally 'database_filename'
+def save_data(df, database_filename):
+    engine = create_engine('sqlite:///' + database_filename)
+    df.to_sql('disaster', engine, index=False) 
 
 
+def main():
+    if len(sys.argv) == 4:
+
+        messages_filepath, categories_filepath, database_filepath = sys.argv[1:]
+
+        print('Loading data...\n    MESSAGES: {}\n    CATEGORIES: {}'
+              .format(messages_filepath, categories_filepath))
+        df = load_data(messages_filepath, categories_filepath)
+
+        print('Cleaning data...')
+        df = clean_data(df)
+        
+        print('Saving data...\n    DATABASE: {}'.format(database_filepath))
+        save_data(df, database_filepath)
+        
+        print('Cleaned data saved to database!')
+    
+    else:
+        print('Please provide the filepaths of the messages and categories '\
+              'datasets as the first and second argument respectively, as '\
+              'well as the filepath of the database to save the cleaned data '\
+              'to as the third argument. \n\nExample: python process_data.py '\
+              'disaster_messages.csv disaster_categories.csv '\
+              'DisasterResponse.db')
+
+
+if __name__ == '__main__':
+    main()
