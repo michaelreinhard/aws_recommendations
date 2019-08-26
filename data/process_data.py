@@ -4,6 +4,20 @@ import pandas as pd
 from sqlalchemy import create_engine
 
 
+def postitive_threshold(df, threshold):
+    '''
+    Input: 
+        df: a Pandas DataFrame
+        threshold: a number between 2 and 5 
+    Sets the threshold at which a review will be coded as 
+    positive or negative. For example, if set at 4 the reviews 
+    that gave 4 or 5 stars will be positive and 3 and below negative.
+    '''
+    df.loc[df.Score >=threshold,'positive'] = int(1)
+    df.loc[df.Score <threshold,'positive'] = int(0)
+    return df
+
+
 def load_data(food_reviews_filepath):
     '''
     Inputs: (
@@ -16,6 +30,9 @@ def load_data(food_reviews_filepath):
     
     #combine all the text into one variable
     df["text_all"] = df.Summary.str.cat(df.Text, sep = ' . ')
+    
+    #create the dependent variable
+    df = postitive_threshold(df, threshold=4)
     
     #drop variables not used in the analysis
     df = df.drop(['Text', 'Id', 'ProductId', 'UserId', 'ProfileName', 'Time'], axis=1)
